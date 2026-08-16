@@ -1,83 +1,78 @@
 /**
- * @CuriosityDanube
- * DanubePad 1.1
+ * Copyright @CuriosityDanube - All Rights Reserved.
+ * DanubePad 1.2
+ *
+ * This program is free software, you can distribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as published by
+ * the Free Software Foundation.
  */
+
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import java.util.*;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.text.*;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.*;
 
-public class Notepad extends JFrame implements ActionListener
-{
+public class Notepad extends JFrame implements ActionListener {
     private JTextPane textPane;
     private JFileChooser fileChooser;
-    private JMenuItem newItem;
-    private JMenuItem openItem;
-    private JMenuItem saveItem;
-    private JMenuItem exitItem;
-    private JMenuItem cutItem;
-    private JMenuItem copyItem;
-    private JMenuItem pasteItem;
-    private JRadioButtonMenuItem yamlItem;
-    private JRadioButtonMenuItem jsItem;
-    private JRadioButtonMenuItem htmlItem;
-    private JRadioButtonMenuItem cssItem;
-    private JRadioButtonMenuItem sassItem;
-    private JRadioButtonMenuItem jsonItem;
-    private JRadioButtonMenuItem pythonItem;
-    private JRadioButtonMenuItem tsItem;
-    private JRadioButtonMenuItem phpItem;
-    private JRadioButtonMenuItem goItem;
-    private JRadioButtonMenuItem plainItem;
-    private JRadioButtonMenuItem darkTheme;
-    private JRadioButtonMenuItem lightTheme;
-    private JRadioButtonMenuItem pastelTheme;
-    private JRadioButtonMenuItem moonTheme;
-    private JRadioButtonMenuItem directxTheme;
-    private JRadioButtonMenuItem linuxTheme;
-    private JRadioButtonMenuItem htmlTheme;
-    private JRadioButtonMenuItem grubTheme;
-    private JRadioButtonMenuItem milkTheme;
+    private JMenuItem newItem, openItem, saveItem, openFolderItem, exitItem;
+    private JMenuItem cutItem, copyItem, pasteItem;
+    private JMenuItem creditsItem, licenseItem;
+
+    private JRadioButtonMenuItem plainItem, yamlItem, jsItem, htmlItem, cssItem,
+            sassItem, jsonItem, pythonItem, tsItem, phpItem, goItem;
+    private JRadioButtonMenuItem lightTheme, darkTheme, pastelTheme, moonTheme,
+            directxTheme, linuxTheme, htmlTheme, grubTheme, milkTheme;
+
     private JPanel sideBarPanel;
     private JTree folderTree;
     private JScrollPane treeScrollPane;
-    private JMenuItem openFolderItem;
-    private boolean isSidebarVisible = false;
     private File activeFile = null;
     private SyntaxHighlighter currentHighlighter;
     private ThemeManager themeManager;
-    private File currentWorkingDir = null;
+    private AutoCompleteManager autoCompleteManager;
 
-    public Notepad()
-    {
+    public Notepad() {
         super("DanubePad - Untitled");
 
         textPane = new JTextPane();
-        textPane.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        textPane.setFont(new Font("Consolas", Font.PLAIN, 14));
         textPane.setMargin(new Insets(10, 10, 10, 10));
         JScrollPane scrollPane = new JScrollPane(textPane);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
+
         fileChooser = new JFileChooser();
         JMenuBar menuBar = new JMenuBar();
         menuBar.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
+
         JMenu fileMenu = new JMenu("File");
         JMenu editMenu = new JMenu("Edit");
         JMenu syntaxMenu = new JMenu("Syntax");
         JMenu themesMenu = new JMenu("Themes");
+        JMenu helpMenu = new JMenu("Help");
+
         newItem = new JMenuItem("New");
         openItem = new JMenuItem("Open");
         saveItem = new JMenuItem("Save");
         openFolderItem = new JMenuItem("Open Folder...");
         exitItem = new JMenuItem("Exit");
-        saveItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, ActionEvent.CTRL_MASK));
+        saveItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK));
+
         cutItem = new JMenuItem("Cut");
         copyItem = new JMenuItem("Copy");
         pasteItem = new JMenuItem("Paste");
+
+        creditsItem = new JMenuItem("Credits");
+        licenseItem = new JMenuItem("License (GPLv2)");
+
         ButtonGroup syntaxGroup = new ButtonGroup();
         plainItem = new JRadioButtonMenuItem("Plain Text", true);
         yamlItem = new JRadioButtonMenuItem("Yaml");
@@ -92,12 +87,11 @@ public class Notepad extends JFrame implements ActionListener
         goItem = new JRadioButtonMenuItem("Go");
 
         JRadioButtonMenuItem[] syntaxItems = {
-            plainItem, yamlItem, jsItem, htmlItem, cssItem, 
+            plainItem, yamlItem, jsItem, htmlItem, cssItem,
             sassItem, jsonItem, pythonItem, tsItem, phpItem, goItem
         };
 
-        for (JRadioButtonMenuItem item : syntaxItems)
-        {
+        for (JRadioButtonMenuItem item : syntaxItems) {
             syntaxGroup.add(item);
             item.addActionListener(this);
             syntaxMenu.add(item);
@@ -110,17 +104,16 @@ public class Notepad extends JFrame implements ActionListener
         moonTheme = new JRadioButtonMenuItem("Moon");
         directxTheme = new JRadioButtonMenuItem("DirectX");
         linuxTheme = new JRadioButtonMenuItem("Linux");
-        htmlTheme = new JRadioButtonMenuItem("Html");
-        grubTheme = new JRadioButtonMenuItem("Grub");
+        htmlTheme = new JRadioButtonMenuItem("Paper");
+        grubTheme = new JRadioButtonMenuItem("BIOS");
         milkTheme = new JRadioButtonMenuItem("Milk");
 
         JRadioButtonMenuItem[] themeItems = {
-            lightTheme, darkTheme, pastelTheme, moonTheme, 
+            lightTheme, darkTheme, pastelTheme, moonTheme,
             directxTheme, linuxTheme, htmlTheme, grubTheme, milkTheme
         };
 
-        for (JRadioButtonMenuItem item : themeItems)
-        {
+        for (JRadioButtonMenuItem item : themeItems) {
             themeGroup.add(item);
             item.addActionListener(this);
             themesMenu.add(item);
@@ -134,35 +127,62 @@ public class Notepad extends JFrame implements ActionListener
         cutItem.addActionListener(this);
         copyItem.addActionListener(this);
         pasteItem.addActionListener(this);
+        creditsItem.addActionListener(this);
+        licenseItem.addActionListener(this);
+
         fileMenu.add(newItem);
         fileMenu.add(openItem);
         fileMenu.add(saveItem);
         fileMenu.add(openFolderItem);
         fileMenu.addSeparator();
         fileMenu.add(exitItem);
+
         editMenu.add(cutItem);
         editMenu.add(copyItem);
         editMenu.add(pasteItem);
+
+        helpMenu.add(creditsItem);
+        helpMenu.add(licenseItem);
+
         menuBar.add(fileMenu);
         menuBar.add(editMenu);
         menuBar.add(syntaxMenu);
         menuBar.add(themesMenu);
+        menuBar.add(helpMenu);
 
         setJMenuBar(menuBar);
 
         sideBarPanel = new JPanel(new BorderLayout());
         sideBarPanel.setPreferredSize(new Dimension(240, 0));
-        
+
         DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode("No Folder Opened");
         folderTree = new JTree(rootNode);
-        folderTree.setRowHeight(24);
+        folderTree.setRowHeight(22);
+        folderTree.setCellRenderer(new FileTreeCellRenderer());
+        folderTree.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    TreePath path = folderTree.getPathForLocation(e.getX(), e.getY());
+                    if (path != null) {
+                        DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+                        if (node.getUserObject() instanceof FileNode) {
+                            FileNode fNode = (FileNode) node.getUserObject();
+                            if (fNode.file.isFile()) {
+                                openFileContent(fNode.file);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
         treeScrollPane = new JScrollPane(folderTree);
         treeScrollPane.setBorder(BorderFactory.createEmptyBorder());
         sideBarPanel.add(treeScrollPane, BorderLayout.CENTER);
-        
+
         add(sideBarPanel, BorderLayout.WEST);
         sideBarPanel.setVisible(false);
-
         add(scrollPane, BorderLayout.CENTER);
 
         setSize(1100, 750);
@@ -172,124 +192,143 @@ public class Notepad extends JFrame implements ActionListener
         currentHighlighter = new SyntaxHighlighter(textPane, "Plain");
         themeManager = new ThemeManager(textPane, scrollPane, menuBar, sideBarPanel, folderTree, treeScrollPane);
         themeManager.applyTheme("Light");
+
+        autoCompleteManager = new AutoCompleteManager(textPane);
     }
 
-    public void actionPerformed(ActionEvent e)
-    {
+    @Override
+    public void actionPerformed(ActionEvent e) {
         Object source = e.getSource();
 
-        if (source == newItem)
-        {
+        if (source == newItem) {
             textPane.setText("");
             activeFile = null;
             setTitle("DanubePad - Untitled");
-        }
-        else if (source == openItem)
-        {
-            if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION)
-            {
-                File file = fileChooser.getSelectedFile();
-                openFileContent(file);
+        } else if (source == openItem) {
+            if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                openFileContent(fileChooser.getSelectedFile());
             }
-        }
-        else if (source == openFolderItem)
-        {
+        } else if (source == openFolderItem) {
             JFolderChooser folderChooser = new JFolderChooser();
-            if (folderChooser.showOpenDialog(this) == JFolderChooser.APPROVE_OPTION)
-            {
-                currentWorkingDir = folderChooser.getSelectedFile();
-                populateFolderTree(currentWorkingDir);
+            if (folderChooser.showOpenDialog(this) == JFolderChooser.APPROVE_OPTION) {
+                populateFolderTree(folderChooser.getSelectedFile());
                 sideBarPanel.setVisible(true);
-                isSidebarVisible = true;
                 revalidate();
             }
-        }
-        else if (source == saveItem)
-        {
+        } else if (source == saveItem) {
             saveCurrentFile();
-        }
-        else if (source == exitItem)
-        {
+        } else if (source == exitItem) {
             System.exit(0);
-        }
-        else if (source == cutItem)
-        {
+        } else if (source == cutItem) {
             textPane.cut();
-        }
-        else if (source == copyItem)
-        {
+        } else if (source == copyItem) {
             textPane.copy();
-        }
-        else if (source == pasteItem)
-        {
+        } else if (source == pasteItem) {
             textPane.paste();
-        }
-        else 
-        {
+        } else if (source == creditsItem) {
+            showCreditsDialog();
+        } else if (source == licenseItem) {
+            showLicenseDialog();
+        } else {
             String lang = getSyntaxLanguageSelection(source);
-            if (lang != null)
-            {
+            if (lang != null) {
                 currentHighlighter.setLanguage(lang);
+                autoCompleteManager.setLanguage(lang);
                 return;
             }
 
             String theme = getThemeSelection(source);
-            if (theme != null)
-            {
+            if (theme != null) {
                 themeManager.applyTheme(theme);
-                currentHighlighter.updateThemeStyles(themeManager.getKeywordColor(), themeManager.getCommentColor(), 
-                                                   themeManager.getStringColor(), themeManager.getNumberColor(), 
-                                                   themeManager.getDefaultColor());
+                currentHighlighter.updateThemeStyles(
+                        themeManager.getKeywordColor(),
+                        themeManager.getCommentColor(),
+                        themeManager.getStringColor(),
+                        themeManager.getNumberColor(),
+                        themeManager.getDefaultColor(),
+                        themeManager.getErrorColor()
+                );
             }
         }
     }
 
-    private void saveCurrentFile()
-    {
-        if (activeFile != null)
-        {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(activeFile)))
-            {
+    private void showCreditsDialog() {
+        String credits = "<html><body style='width: 300px; padding: 10px; font-family: Segoe UI, sans-serif;'>"
+                + "<h2 style='margin-bottom: 5px; color: #005c8a;'>DanubePad 1.2</h2>"
+                + "<p><b>Created by:</b> FrostyDanube</p>"
+                + "<p>A text editor with syntax</p>"
+                + "<hr>"
+                + "<p style='font-size: 10px; color: #666;'>© Copyright FrostyDanube. All Rights Reserved.</p>"
+                + "</body></html>";
+        JOptionPane.showMessageDialog(this, credits, "Credits - DanubePad", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void showLicenseDialog() {
+        String licenseText = "GNU GENERAL PUBLIC LICENSE\n"
+                + "Version 2, June 1991\n\n"
+                + "Copyright (C) 1989, 1991 Free Software Foundation, Inc.\n"
+                + "51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA\n\n"
+                + "Everyone is permitted to copy and distribute verbatim copies\n"
+                + "of this license document, but changing it is not allowed.\n\n"
+                + "Preamble:\n"
+                + "The licenses for most software are designed to take away your\n"
+                + "freedom to share and change it. By contrast, the GNU General\n"
+                + "Public License is intended to guarantee your freedom to share\n"
+                + "and change free software--to make sure the software is free for\n"
+                + "all its users.\n\n"
+                + "This program is dwistributed in the hope that it will be useful,\n"
+                + "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+                + "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n"
+                + "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n"
+                + "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n"
+                + "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n"
+                + "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n"
+                + "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n"
+                + "GNU General Public License for more details.";
+
+        JTextArea textArea = new JTextArea(licenseText);
+        textArea.setEditable(false);
+        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        textArea.setCaretPosition(0);
+
+        JScrollPane scroll = new JScrollPane(textArea);
+        scroll.setPreferredSize(new Dimension(500, 350));
+
+        JOptionPane.showMessageDialog(this, scroll, "License - GNU GPLv2", JOptionPane.PLAIN_MESSAGE);
+    }
+
+    private void saveCurrentFile() {
+        if (activeFile != null) {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(activeFile))) {
                 writer.write(textPane.getText());
                 setTitle("DanubePad - " + activeFile.getName() + " (Saved)");
-            }
-            catch (IOException ex)
-            {
+            } catch (IOException ex) {
                 JOptionPane.showMessageDialog(this, "Could not save file to: " + activeFile.getAbsolutePath());
             }
-        }
-        else
-        {
-            if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION)
-            {
+        } else {
+            if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
                 activeFile = fileChooser.getSelectedFile();
-                try (BufferedWriter writer = new BufferedWriter(new FileWriter(activeFile)))
-                {
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(activeFile))) {
                     writer.write(textPane.getText());
                     setTitle("DanubePad - " + activeFile.getName());
-                }
-                catch (IOException ex)
-                {
+                } catch (IOException ex) {
                     JOptionPane.showMessageDialog(this, "Could not save file.");
                 }
             }
         }
     }
 
-    private void openFileContent(File file)
-    {
-        try (BufferedReader reader = new BufferedReader(new FileReader(file)))
-        {
+    private void openFileContent(File file) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             StringBuilder sb = new StringBuilder();
             String line;
-            while ((line = reader.readLine()) != null)
-            {
+            while ((line = reader.readLine()) != null) {
                 sb.append(line).append("\n");
             }
             textPane.setText(sb.toString());
             activeFile = file;
             setTitle("DanubePad - " + file.getName());
-            
+
             String name = file.getName().toLowerCase();
             if (name.endsWith(".js")) jsItem.setSelected(true);
             else if (name.endsWith(".html")) htmlItem.setSelected(true);
@@ -302,17 +341,16 @@ public class Notepad extends JFrame implements ActionListener
             else if (name.endsWith(".go")) goItem.setSelected(true);
             else if (name.endsWith(".yml") || name.endsWith(".yaml")) yamlItem.setSelected(true);
             else plainItem.setSelected(true);
-            
-            currentHighlighter.setLanguage(getCurrentlySelectedLanguage());
-        }
-        catch (IOException ex)
-        {
+
+            String selectedLang = getCurrentlySelectedLanguage();
+            currentHighlighter.setLanguage(selectedLang);
+            autoCompleteManager.setLanguage(selectedLang);
+        } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "Could not open file.");
         }
     }
 
-    private String getCurrentlySelectedLanguage()
-    {
+    private String getCurrentlySelectedLanguage() {
         if (jsItem.isSelected()) return "JS";
         if (htmlItem.isSelected()) return "HTML";
         if (cssItem.isSelected()) return "CSS";
@@ -326,8 +364,7 @@ public class Notepad extends JFrame implements ActionListener
         return "Plain";
     }
 
-    private String getSyntaxLanguageSelection(Object source)
-    {
+    private String getSyntaxLanguageSelection(Object source) {
         if (source == yamlItem) return "Yaml";
         if (source == jsItem) return "JS";
         if (source == htmlItem) return "HTML";
@@ -342,8 +379,7 @@ public class Notepad extends JFrame implements ActionListener
         return null;
     }
 
-    private String getThemeSelection(Object source)
-    {
+    private String getThemeSelection(Object source) {
         if (source == lightTheme) return "Light";
         if (source == darkTheme) return "Dark";
         if (source == pastelTheme) return "Pastel";
@@ -356,42 +392,33 @@ public class Notepad extends JFrame implements ActionListener
         return null;
     }
 
-    private void populateFolderTree(File dir)
-    {
+    private void populateFolderTree(File dir) {
         DefaultMutableTreeNode root = new DefaultMutableTreeNode(new FileNode(dir));
         buildTreeNodes(dir, root);
         folderTree.setModel(new DefaultTreeModel(root));
-        
-        folderTree.addTreeSelectionListener(e -> {
-            DefaultMutableTreeNode node = (DefaultMutableTreeNode) folderTree.getLastSelectedPathComponent();
-            if (node != null && node.getUserObject() instanceof FileNode) {
-                FileNode fNode = (FileNode) node.getUserObject();
-                if (fNode.file.isFile()) {
-                    openFileContent(fNode.file);
-                }
-            }
-        });
     }
 
-    private void buildTreeNodes(File file, DefaultMutableTreeNode parent)
-    {
+    private void buildTreeNodes(File file, DefaultMutableTreeNode parent) {
         File[] files = file.listFiles();
-        if (files != null)
-        {
-            for (File f : files)
-            {
+        if (files != null) {
+            // Sort: directories first, then files
+            Arrays.sort(files, (f1, f2) -> {
+                if (f1.isDirectory() && !f2.isDirectory()) return -1;
+                if (!f1.isDirectory() && f2.isDirectory()) return 1;
+                return f1.getName().compareToIgnoreCase(f2.getName());
+            });
+
+            for (File f : files) {
                 DefaultMutableTreeNode node = new DefaultMutableTreeNode(new FileNode(f));
                 parent.add(node);
-                if (f.isDirectory())
-                {
+                if (f.isDirectory()) {
                     buildTreeNodes(f, node);
                 }
             }
         }
     }
 
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) {}
@@ -399,24 +426,44 @@ public class Notepad extends JFrame implements ActionListener
     }
 }
 
-class FileNode
-{
-    File file;
-    public FileNode(File file) { this.file = file; }
-    public String toString() { return file.getName(); }
+/* Custom File Tree Renderer for better iconography */
+class FileTreeCellRenderer extends DefaultTreeCellRenderer {
+    @Override
+    public Component getTreeCellRendererComponent(JTree tree, Object value,
+                                                  boolean sel, boolean expanded,
+                                                  boolean leaf, int row, boolean hasFocus) {
+        super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);
+        
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
+        if (node.getUserObject() instanceof FileNode) {
+            FileNode fileNode = (FileNode) node.getUserObject();
+            File file = fileNode.file;
+            if (file.isDirectory()) {
+                setIcon(expanded ? UIManager.getIcon("Tree.openIcon") : UIManager.getIcon("Tree.closedIcon"));
+            } else {
+                setIcon(UIManager.getIcon("Tree.leafIcon"));
+            }
+        }
+        return this;
+    }
 }
 
-class JFolderChooser extends JFileChooser
-{
-    public JFolderChooser()
-    {
+class FileNode {
+    File file;
+    public FileNode(File file) { this.file = file; }
+    @Override
+    public String toString() { return file.getName().isEmpty() ? file.getPath() : file.getName(); }
+}
+
+class JFolderChooser extends JFileChooser {
+    public JFolderChooser() {
         super();
         setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
     }
 }
 
-class SyntaxHighlighter
-{
+/* Syntax Highlighting & Syntax Error Detection */
+class SyntaxHighlighter {
     private JTextPane textPane;
     private String language;
     private boolean updating = false;
@@ -427,108 +474,168 @@ class SyntaxHighlighter
     private AttributeSet stringStyle;
     private AttributeSet commentStyle;
     private AttributeSet numberStyle;
+    private AttributeSet errorStyle;
 
-    public SyntaxHighlighter(JTextPane textPane, String language)
-    {
+    public SyntaxHighlighter(JTextPane textPane, String language) {
         this.textPane = textPane;
         this.language = language;
 
-        updateThemeStyles(new Color(0, 102, 204), new Color(128, 128, 128), 
-                          new Color(34, 139, 34), new Color(178, 34, 34), new Color(50, 50, 50));
+        updateThemeStyles(
+                new Color(0, 102, 204),
+                new Color(128, 128, 128),
+                new Color(34, 139, 34),
+                new Color(178, 34, 34),
+                new Color(50, 50, 50),
+                new Color(255, 0, 0)
+        );
 
-        textPane.getDocument().addDocumentListener(new javax.swing.event.DocumentListener()
-        {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { process(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { process(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { process(); }
+        textPane.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { process(); }
+            public void removeUpdate(DocumentEvent e) { process(); }
+            public void changedUpdate(DocumentEvent e) { process(); }
         });
     }
 
-    public void updateThemeStyles(Color kw, Color comm, Color str, Color num, Color def)
-    {
+    public void updateThemeStyles(Color kw, Color comm, Color str, Color num, Color def, Color err) {
         keywordStyle = cont.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, kw);
         commentStyle = cont.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, comm);
         stringStyle = cont.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, str);
         numberStyle = cont.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, num);
         defaultStyle = cont.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, def);
+
+        SimpleAttributeSet errAttr = new SimpleAttributeSet();
+        StyleConstants.setForeground(errAttr, err);
+        StyleConstants.setBold(errAttr, true);
+        StyleConstants.setUnderline(errAttr, true);
+        errorStyle = errAttr;
+
         rehighlight();
     }
 
-    public void setLanguage(String language)
-    {
+    public void setLanguage(String language) {
         this.language = language;
         rehighlight();
     }
 
-    public void rehighlight()
-    {
+    public void rehighlight() {
         process();
     }
 
-    private synchronized void process()
-    {
-        if (updating || language.equals("Plain")) return;
+    private synchronized void process() {
+        if (updating) return;
         updating = true;
 
         SwingUtilities.invokeLater(() -> {
             StyledDocument doc = textPane.getStyledDocument();
-            String text = "";
-            try
-            {
+            String text;
+            try {
                 text = doc.getText(0, doc.getLength());
-            }
-            catch (BadLocationException e)
-            {
+            } catch (BadLocationException e) {
                 updating = false;
                 return;
             }
 
             doc.setCharacterAttributes(0, text.length(), defaultStyle, true);
-            applyHighlighting(doc, text);
+
+            if (!language.equals("Plain")) {
+                applyHighlighting(doc, text);
+            }
+            highlightSyntaxErrors(doc, text);
+
             updating = false;
         });
     }
 
-    private void applyHighlighting(StyledDocument doc, String text)
-    {
+    private void applyHighlighting(StyledDocument doc, String text) {
         String keywords = getKeywords(language);
         String comments = getCommentPattern(language);
-        
+
         String regex = "(?<KEYWORD>\\b(" + keywords + ")\\b)" +
-                       "|(?<COMMENT>" + comments + ")" +
-                       "|(?<STRING>\"([^\"\\\\]|\\\\.)*\"|'([^'\\\\]|\\\\.)*')" +
-                       "|(?<NUMBER>\\b\\d+(\\.\\d+)?\\b)";
+                "|(?<COMMENT>" + comments + ")" +
+                "|(?<STRING>\"([^\"\\\\]|\\\\.)*\"|'([^'\\\\]|\\\\.)*')" +
+                "|(?<NUMBER>\\b\\d+(\\.\\d+)?\\b)";
 
         Matcher matcher = Pattern.compile(regex, Pattern.MULTILINE).matcher(text);
 
-        while (matcher.find())
-        {
-            if (matcher.group("KEYWORD") != null)
-            {
+        while (matcher.find()) {
+            if (matcher.group("KEYWORD") != null) {
                 doc.setCharacterAttributes(matcher.start("KEYWORD"), matcher.end("KEYWORD") - matcher.start("KEYWORD"), keywordStyle, true);
-            }
-            else if (matcher.group("COMMENT") != null)
-            {
+            } else if (matcher.group("COMMENT") != null) {
                 doc.setCharacterAttributes(matcher.start("COMMENT"), matcher.end("COMMENT") - matcher.start("COMMENT"), commentStyle, true);
-            }
-            else if (matcher.group("STRING") != null)
-            {
+            } else if (matcher.group("STRING") != null) {
                 doc.setCharacterAttributes(matcher.start("STRING"), matcher.end("STRING") - matcher.start("STRING"), stringStyle, true);
-            }
-            else if (matcher.group("NUMBER") != null)
-            {
+            } else if (matcher.group("NUMBER") != null) {
                 doc.setCharacterAttributes(matcher.start("NUMBER"), matcher.end("NUMBER") - matcher.start("NUMBER"), numberStyle, true);
             }
         }
     }
 
-    private String getKeywords(String lang)
-    {
-        switch (lang)
-        {
+    /* Syntax Error Highlighting for unmatched brackets/quotes & trailing tokens */
+    private void highlightSyntaxErrors(StyledDocument doc, String text) {
+        Stack<Integer> stack = new Stack<>();
+
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == '(' || ch == '{' || ch == '[') {
+                stack.push(i);
+            } else if (ch == ')' || ch == '}' || ch == ']') {
+                if (stack.isEmpty()) {
+                    doc.setCharacterAttributes(i, 1, errorStyle, true);
+                } else {
+                    char open = text.charAt(stack.peek());
+                    if ((ch == ')' && open == '(') || (ch == '}' && open == '{') || (ch == ']' && open == '[')) {
+                        stack.pop();
+                    } else {
+                        doc.setCharacterAttributes(i, 1, errorStyle, true);
+                    }
+                }
+            }
+        }
+
+        // Highlight unclosed opening brackets
+        while (!stack.isEmpty()) {
+            int pos = stack.pop();
+            doc.setCharacterAttributes(pos, 1, errorStyle, true);
+        }
+
+        // Check for unclosed string quotes per line
+        String[] lines = text.split("\n", -1);
+        int currentOffset = 0;
+        for (String line : lines) {
+            boolean inDouble = false, inSingle = false;
+            int doubleStart = -1, singleStart = -1;
+
+            for (int i = 0; i < line.length(); i++) {
+                char c = line.charAt(i);
+                if (c == '\\') {
+                    i++; // skip escaped char
+                    continue;
+                }
+                if (c == '"' && !inSingle) {
+                    inDouble = !inDouble;
+                    if (inDouble) doubleStart = i;
+                } else if (c == '\'' && !inDouble) {
+                    inSingle = !inSingle;
+                    if (inSingle) singleStart = i;
+                }
+            }
+
+            if (inDouble && doubleStart != -1) {
+                doc.setCharacterAttributes(currentOffset + doubleStart, line.length() - doubleStart, errorStyle, false);
+            }
+            if (inSingle && singleStart != -1) {
+                doc.setCharacterAttributes(currentOffset + singleStart, line.length() - singleStart, errorStyle, false);
+            }
+
+            currentOffset += line.length() + 1;
+        }
+    }
+
+    private String getKeywords(String lang) {
+        switch (lang) {
             case "JS":
             case "TypeScript":
-                return "var|let|const|function|return|if|else|for|while|class|import|export|default|switch|case|break|new|this|typeof";
+                return "var|let|const|function|return|if|else|for|while|class|import|export|default|switch|case|break|new|this|typeof|async|await";
             case "Python":
                 return "def|return|if|elif|else|for|while|class|import|from|as|try|except|with|lambda|True|False|None|in|is|not|and|or";
             case "PHP":
@@ -548,10 +655,8 @@ class SyntaxHighlighter
         }
     }
 
-    private String getCommentPattern(String lang)
-    {
-        switch (lang)
-        {
+    private String getCommentPattern(String lang) {
+        switch (lang) {
             case "Python":
             case "Yaml":
                 return "(#.*)";
@@ -571,9 +676,144 @@ class SyntaxHighlighter
     }
 }
 
-/* Theme manager */
-class ThemeManager
-{
+/* Auto-complete Popup Manager */
+class AutoCompleteManager {
+    private JTextPane textPane;
+    private JPopupMenu popupMenu;
+    private JList<String> suggestionList;
+    private DefaultListModel<String> listModel;
+    private String language = "Plain";
+
+    private static final Map<String, List<String>> DICTIONARIES = new HashMap<>();
+
+    static {
+        DICTIONARIES.put("JS", Arrays.asList("function", "const", "let", "var", "return", "document", "window", "console.log", "addEventListener", "async", "await", "import", "export"));
+        DICTIONARIES.put("TypeScript", Arrays.asList("function", "const", "let", "interface", "type", "namespace", "return", "async", "await", "implements", "readonly"));
+        DICTIONARIES.put("Python", Arrays.asList("def", "class", "return", "import", "from", "print", "self", "elif", "except", "lambda", "with"));
+        DICTIONARIES.put("HTML", Arrays.asList("<div>", "<span>", "<p>", "<a href=\"\">", "<script>", "<style>", "<link>", "<meta>", "<html>", "<body>"));
+        DICTIONARIES.put("CSS", Arrays.asList("background-color", "color", "margin", "padding", "display: flex;", "border", "font-size", "position: relative;"));
+        DICTIONARIES.put("Sass", Arrays.asList("@mixin", "@include", "@extend", "background-color", "color", "margin", "padding"));
+        DICTIONARIES.put("PHP", Arrays.asList("function", "public", "private", "protected", "echo", "foreach", "namespace", "use", "$this"));
+        DICTIONARIES.put("Go", Arrays.asList("func", "package", "import", "struct", "interface", "fmt.Println", "make", "append", "return"));
+        DICTIONARIES.put("Json", Arrays.asList("\"name\":", "\"version\":", "\"description\":", "true", "false", "null"));
+        DICTIONARIES.put("Yaml", Arrays.asList("version:", "services:", "image:", "ports:", "environment:"));
+    }
+
+    public AutoCompleteManager(JTextPane textPane) {
+        this.textPane = textPane;
+        this.popupMenu = new JPopupMenu();
+        this.listModel = new DefaultListModel<>();
+        this.suggestionList = new JList<>(listModel);
+        this.suggestionList.setFocusable(false);
+
+        popupMenu.add(new JScrollPane(suggestionList));
+        popupMenu.setFocusable(false);
+
+        suggestionList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 1) {
+                    insertSelectedCompletion();
+                }
+            }
+        });
+
+        textPane.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_DOWN && popupMenu.isVisible()) {
+                    int next = Math.min(suggestionList.getSelectedIndex() + 1, listModel.getSize() - 1);
+                    suggestionList.setSelectedIndex(next);
+                    return;
+                }
+                if (e.getKeyCode() == KeyEvent.VK_UP && popupMenu.isVisible()) {
+                    int prev = Math.max(suggestionList.getSelectedIndex() - 1, 0);
+                    suggestionList.setSelectedIndex(prev);
+                    return;
+                }
+                if ((e.getKeyCode() == KeyEvent.VK_ENTER || e.getKeyCode() == KeyEvent.VK_TAB) && popupMenu.isVisible()) {
+                    insertSelectedCompletion();
+                    e.consume();
+                    return;
+                }
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE && popupMenu.isVisible()) {
+                    popupMenu.setVisible(false);
+                    return;
+                }
+
+                checkForSuggestions();
+            }
+        });
+    }
+
+    public void setLanguage(String lang) {
+        this.language = lang;
+    }
+
+    private void checkForSuggestions() {
+        List<String> keywords = DICTIONARIES.get(language);
+        if (keywords == null || keywords.isEmpty()) {
+            popupMenu.setVisible(false);
+            return;
+        }
+
+        String word = getCurrentWord();
+        if (word.length() < 2) {
+            popupMenu.setVisible(false);
+            return;
+        }
+
+        listModel.clear();
+        for (String kw : keywords) {
+            if (kw.toLowerCase().startsWith(word.toLowerCase()) && !kw.equalsIgnoreCase(word)) {
+                listModel.addElement(kw);
+            }
+        }
+
+        if (!listModel.isEmpty()) {
+            suggestionList.setSelectedIndex(0);
+            try {
+                Rectangle caretRect = textPane.modelToView(textPane.getCaretPosition());
+                if (caretRect != null) {
+                    popupMenu.show(textPane, caretRect.x, caretRect.y + caretRect.height);
+                    textPane.requestFocusInWindow();
+                }
+            } catch (BadLocationException ignored) {}
+        } else {
+            popupMenu.setVisible(false);
+        }
+    }
+
+    private String getCurrentWord() {
+        int caretPos = textPane.getCaretPosition();
+        String text = textPane.getText();
+        int start = caretPos - 1;
+        while (start >= 0 && Character.isJavaIdentifierPart(text.charAt(start))) {
+            start--;
+        }
+        return text.substring(start + 1, caretPos);
+    }
+
+    private void insertSelectedCompletion() {
+        String selected = suggestionList.getSelectedValue();
+        if (selected == null) return;
+
+        String word = getCurrentWord();
+        int caretPos = textPane.getCaretPosition();
+        int start = caretPos - word.length();
+
+        try {
+            Document doc = textPane.getDocument();
+            doc.remove(start, word.length());
+            doc.insertString(start, selected, null);
+        } catch (BadLocationException ignored) {}
+
+        popupMenu.setVisible(false);
+    }
+}
+
+/* Distinct Theme Manager */
+class ThemeManager {
     private JTextPane textPane;
     private JScrollPane scrollPane;
     private JMenuBar menuBar;
@@ -581,11 +821,10 @@ class ThemeManager
     private JTree folderTree;
     private JScrollPane treeScrollPane;
 
-    private Color keywordColor, commentColor, stringColor, numberColor, defaultColor;
+    private Color keywordColor, commentColor, stringColor, numberColor, defaultColor, errorColor;
 
-    public ThemeManager(JTextPane textPane, JScrollPane scrollPane, JMenuBar menuBar, 
-                        JPanel sideBarPanel, JTree folderTree, JScrollPane treeScrollPane)
-    {
+    public ThemeManager(JTextPane textPane, JScrollPane scrollPane, JMenuBar menuBar,
+                        JPanel sideBarPanel, JTree folderTree, JScrollPane treeScrollPane) {
         this.textPane = textPane;
         this.scrollPane = scrollPane;
         this.menuBar = menuBar;
@@ -594,16 +833,109 @@ class ThemeManager
         this.treeScrollPane = treeScrollPane;
     }
 
-    public void applyTheme(String themeName)
-    {
-        Color bg = Color.WHITE;
-        Color fg = Color.BLACK;
-        Color menuBg = new Color(245, 245, 247);
-        Color menuFg = Color.BLACK;
+    public void applyTheme(String themeName) {
+        Color bg, fg, menuBg, menuFg;
+        errorColor = new Color(255, 65, 54);
 
-        switch (themeName)
-        {
+        switch (themeName) {
+            case "Dark":
+                bg = new Color(30, 30, 30);
+                fg = new Color(220, 220, 220);
+                menuBg = new Color(45, 45, 48);
+                menuFg = new Color(220, 220, 220);
+                keywordColor = new Color(86, 156, 214);
+                commentColor = new Color(87, 166, 74);
+                stringColor = new Color(214, 157, 133);
+                numberColor = new Color(181, 206, 168);
+                defaultColor = fg;
+                break;
+
+            case "Pastel":
+                bg = new Color(253, 246, 227);
+                fg = new Color(101, 123, 131);
+                menuBg = new Color(238, 232, 213);
+                menuFg = new Color(101, 123, 131);
+                keywordColor = new Color(38, 139, 210);
+                commentColor = new Color(147, 161, 161);
+                stringColor = new Color(42, 161, 152);
+                numberColor = new Color(211, 54, 130);
+                defaultColor = fg;
+                break;
+
+            case "Moon":
+                bg = new Color(15, 18, 25);
+                fg = new Color(169, 177, 214);
+                menuBg = new Color(26, 30, 43);
+                menuFg = new Color(169, 177, 214);
+                keywordColor = new Color(187, 154, 247);
+                commentColor = new Color(86, 95, 137);
+                stringColor = new Color(156, 207, 120);
+                numberColor = new Color(255, 158, 100);
+                defaultColor = fg;
+                break;
+
+            case "DirectX":
+                bg = new Color(5, 5, 25);
+                fg = new Color(0, 255, 204);
+                menuBg = new Color(10, 10, 50);
+                menuFg = new Color(0, 255, 204);
+                keywordColor = new Color(255, 0, 128);
+                commentColor = new Color(70, 90, 130);
+                stringColor = new Color(255, 230, 0);
+                numberColor = new Color(0, 255, 100);
+                defaultColor = fg;
+                break;
+
+            case "Linux":
+                bg = new Color(12, 12, 12);
+                fg = new Color(57, 255, 20);
+                menuBg = new Color(25, 25, 25);
+                menuFg = new Color(57, 255, 20);
+                keywordColor = new Color(255, 184, 108);
+                commentColor = new Color(98, 114, 164);
+                stringColor = new Color(241, 250, 140);
+                numberColor = new Color(189, 147, 249);
+                defaultColor = fg;
+                break;
+
+            case "Html":
+                bg = new Color(255, 253, 240);
+                fg = new Color(40, 40, 40);
+                menuBg = new Color(240, 235, 210);
+                menuFg = new Color(40, 40, 40);
+                keywordColor = new Color(160, 32, 240);
+                commentColor = new Color(100, 149, 237);
+                stringColor = new Color(178, 34, 34);
+                numberColor = new Color(205, 133, 63);
+                defaultColor = fg;
+                break;
+
+            case "Grub":
+                bg = new Color(0, 0, 128);
+                fg = new Color(255, 255, 255);
+                menuBg = new Color(0, 0, 80);
+                menuFg = new Color(255, 255, 255);
+                keywordColor = new Color(255, 255, 0);
+                commentColor = new Color(0, 255, 255);
+                stringColor = new Color(0, 255, 0);
+                numberColor = new Color(255, 0, 255);
+                defaultColor = fg;
+                break;
+
+            case "Milk":
+                bg = new Color(250, 248, 242);
+                fg = new Color(80, 70, 60);
+                menuBg = new Color(235, 230, 220);
+                menuFg = new Color(80, 70, 60);
+                keywordColor = new Color(180, 100, 50);
+                commentColor = new Color(140, 135, 125);
+                stringColor = new Color(70, 130, 80);
+                numberColor = new Color(190, 80, 80);
+                defaultColor = fg;
+                break;
+
             case "Light":
+            default:
                 bg = new Color(255, 255, 255);
                 fg = new Color(38, 38, 38);
                 menuBg = new Color(242, 242, 247);
@@ -614,111 +946,16 @@ class ThemeManager
                 numberColor = new Color(139, 0, 139);
                 defaultColor = fg;
                 break;
-
-            case "Dark":
-                bg = new Color(18, 18, 18);
-                fg = new Color(224, 224, 224);
-                menuBg = new Color(30, 30, 30);
-                menuFg = new Color(224, 224, 224);
-                keywordColor = new Color(86, 156, 214);
-                commentColor = new Color(92, 143, 92);
-                stringColor = new Color(214, 157, 133);
-                numberColor = new Color(181, 206, 168);
-                defaultColor = fg;
-                break;
-
-            case "Pastel":
-                bg = new Color(250, 247, 240);
-                fg = new Color(84, 94, 107);
-                menuBg = new Color(236, 230, 218);
-                menuFg = new Color(84, 94, 107);
-                keywordColor = new Color(74, 144, 226);
-                commentColor = new Color(155, 166, 177);
-                stringColor = new Color(65, 175, 135);
-                numberColor = new Color(230, 105, 145);
-                defaultColor = fg;
-                break;
-
-            case "Moon":
-                bg = new Color(21, 23, 33);
-                fg = new Color(196, 203, 230);
-                menuBg = new Color(28, 31, 45);
-                menuFg = new Color(196, 203, 230);
-                keywordColor = new Color(199, 146, 234);
-                commentColor = new Color(103, 110, 140);
-                stringColor = new Color(195, 232, 141);
-                numberColor = new Color(247, 140, 108);
-                defaultColor = fg;
-                break;
-
-            case "DirectX":
-                bg = new Color(10, 10, 48);
-                fg = new Color(230, 242, 255);
-                menuBg = new Color(0, 0, 96);
-                menuFg = new Color(255, 255, 255);
-                keywordColor = new Color(51, 204, 255);
-                commentColor = new Color(140, 140, 170);
-                stringColor = new Color(51, 255, 153);
-                numberColor = new Color(255, 255, 102);
-                defaultColor = fg;
-                break;
-
-            case "Linux":
-                bg = new Color(24, 10, 24);
-                fg = new Color(51, 255, 51);
-                menuBg = new Color(42, 14, 42);
-                menuFg = new Color(51, 255, 51);
-                keywordColor = new Color(255, 255, 102);
-                commentColor = new Color(120, 120, 120);
-                stringColor = new Color(255, 102, 255);
-                numberColor = new Color(102, 255, 255);
-                defaultColor = fg;
-                break;
-
-            case "Html":
-                bg = new Color(254, 254, 245);
-                fg = new Color(34, 34, 34);
-                menuBg = new Color(235, 235, 245);
-                menuFg = new Color(0, 0, 102);
-                keywordColor = new Color(178, 34, 34);
-                commentColor = new Color(46, 139, 87);
-                stringColor = new Color(0, 0, 205);
-                numberColor = new Color(210, 105, 30);
-                defaultColor = fg;
-                break;
-
-            case "Grub":
-                bg = new Color(12, 12, 12);
-                fg = new Color(200, 200, 200);
-                menuBg = new Color(0, 0, 139);
-                menuFg = new Color(255, 255, 255);
-                keywordColor = new Color(255, 255, 0);
-                commentColor = new Color(0, 255, 255);
-                stringColor = new Color(0, 255, 0);
-                numberColor = new Color(255, 0, 255);
-                defaultColor = fg;
-                break;
-
-            case "Milk":
-                bg = new Color(252, 250, 245);
-                fg = new Color(74, 68, 61);
-                menuBg = new Color(240, 235, 224);
-                menuFg = new Color(74, 68, 61);
-                keywordColor = new Color(196, 118, 62);
-                commentColor = new Color(153, 143, 133);
-                stringColor = new Color(92, 140, 92);
-                numberColor = new Color(194, 92, 92);
-                defaultColor = fg;
-                break;
         }
 
         textPane.setBackground(bg);
+        textPane.setCaretColor(fg);
         textPane.setForeground(fg);
         scrollPane.setBackground(bg);
-        
+
         menuBar.setBackground(menuBg);
         menuBar.setForeground(menuFg);
-        
+
         sideBarPanel.setBackground(menuBg);
         folderTree.setBackground(bg);
         folderTree.setForeground(fg);
@@ -730,4 +967,5 @@ class ThemeManager
     public Color getStringColor() { return stringColor; }
     public Color getNumberColor() { return numberColor; }
     public Color getDefaultColor() { return defaultColor; }
+    public Color getErrorColor() { return errorColor; }
 }
